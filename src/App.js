@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Printer, Volume2, XCircle } from 'lucide-react';
+import { Printer, Volume2, XCircle, Calendar, Zap } from 'lucide-react';
 
 // ======== INPUT COMPONENTS ========
 
@@ -7,9 +7,9 @@ function ButtonInput({ options, onSubmit }) {
     return (
         <div className="flex flex-wrap gap-3 p-4 justify-center">
             {options.map(opt => (
-                <button 
-                    key={opt} 
-                    onClick={() => onSubmit(opt)} 
+                <button
+                    key={opt}
+                    onClick={() => onSubmit(opt)}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-full transition duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-1"
                 >
                     {opt}
@@ -92,7 +92,7 @@ function FreeTextInput({ onSubmit, placeholder = "Please specify..." }) {
 }
 
 
-// Main App Component
+// ======== Main App Component ========
 export default function App() {
     // ======== STATE MANAGEMENT ========
     const [step, setStep] = useState('welcome');
@@ -224,7 +224,8 @@ export default function App() {
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
                 generationConfig: { responseMimeType: "application/json" }
             };
-            const apiKey = ""; // Provided by environment
+            // Use environment variable for the API key in production
+            const apiKey = process.env.REACT_APP_GEMINI_API_KEY || "AIzaSyDGSTzn0GJq3jCif6wfRBg5O4bwsBaGjwY";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -236,13 +237,17 @@ export default function App() {
                 const rawText = result.candidates[0].content.parts[0].text;
                 const jsonMatch = rawText.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
-                    let cleanedJsonString = jsonMatch[0].replace(/,\s*(?=\s*?[\}\]])/g, "");
+                    let cleanedJsonString = jsonMatch[0].replace(/,\s*(?=[\}\]])/g, "");
                     const parsedJson = JSON.parse(cleanedJsonString);
                     setAiReport(parsedJson);
                 } else {
                     throw new Error("No valid JSON object found in the API response.");
                 }
             } else {
+                 if (result.error) {
+                    console.error("API Error:", result.error.message);
+                    throw new Error(result.error.message);
+                 }
                 throw new Error("Invalid response structure from API.");
             }
         } catch (error) {
@@ -297,7 +302,7 @@ export default function App() {
     const ReportComponent = () => {
         const bmi = calculateBMI();
         if (isGeneratingReport || !aiReport) {
-            return <div className="p-6 text-center">Generating your personalized report...</div>;
+            return <div className="p-6 text-center text-gray-600 animate-pulse">Generating your personalized report...</div>;
         }
         return (
             <div id="report-content" className="p-6 bg-white rounded-lg text-gray-800">
@@ -306,7 +311,7 @@ export default function App() {
                 <div className="mt-6"><h3 className="text-xl font-semibold text-blue-700 mb-3">1. Healthy Eating</h3><ul className="list-disc list-inside space-y-2">{aiReport.healthyEating.map((item, i) => <li key={i}>{item}</li>)}</ul></div>
                 <div className="mt-6"><h3 className="text-xl font-semibold text-blue-700 mb-3">2. Physical Activity</h3><ul className="list-disc list-inside space-y-2">{aiReport.physicalActivity.map((item, i) => <li key={i}>{item}</li>)}</ul></div>
                 <div className="mt-6"><h3 className="text-xl font-semibold text-blue-700 mb-3">3. Behavior and Mindset</h3><ul className="list-disc list-inside space-y-2">{aiReport.behaviorAndMindset.map((item, i) => <li key={i}>{item}</li>)}</ul></div>
-                <div className="mt-6"><h3 className="text-xl font-semibold text-blue-700 mb-3">4. Treatment Considerations</h3><p className="text-sm italic">{aiReport.treatmentConsiderations}</p></div>
+                <div className="mt-6"><h3 className="text-xl font-semibold text-blue-700 mb-3">4. Treatment Considerations</h3><p className="text-base leading-relaxed">{aiReport.treatmentConsiderations}</p></div>
                 <div className="mt-8 border-t pt-4 text-xs text-gray-500"><p><strong>Disclaimer:</strong> This is a computer-generated plan. It is for educational purposes and is not a substitute for a consultation with a qualified healthcare professional.</p></div>
             </div>
         );
@@ -316,8 +321,13 @@ export default function App() {
         window.speechSynthesis.cancel();
         setIsSpeaking(false);
         const printContent = document.getElementById('report-content').innerHTML;
-        const printWindow = window.open('', '', 'height=600,width=800');
-        printWindow.document.write(`<html><head><title>Print Report</title><script src="https://cdn.tailwindcss.com"></script></head><body>${printContent}</body></html>`);
+        const printWindow = window.open('', '', 'height=800,width=800');
+        printWindow.document.write('<html><head><title>Print Report</title>');
+        printWindow.document.write('<script src="https://cdn.tailwindcss.com"><\/script>');
+        printWindow.document.write('<style>body { font-family: "Inter", sans-serif; }</style>')
+        printWindow.document.write('</head><body class="p-8">');
+        printWindow.document.write(printContent);
+        printWindow.document.write('</body></html>');
         printWindow.document.close();
         printWindow.focus();
         setTimeout(() => { printWindow.print(); }, 500);
@@ -340,14 +350,19 @@ export default function App() {
     };
 
     return (
-        <div className="bg-gray-200 font-sans flex items-center justify-center min-h-screen p-4">
-            <div className="w-full max-w-3xl bg-gray-50 rounded-2xl shadow-2xl flex flex-col" style={{height: '95vh'}}>
-                <div className="bg-white border-b border-gray-200 p-4 rounded-t-2xl shadow-sm flex items-center justify-between">
+        <div className="bg-gray-100 font-sans flex items-center justify-center min-h-screen">
+            <div className="w-full h-screen sm:h-auto sm:max-w-3xl bg-gray-50 rounded-none sm:rounded-2xl shadow-2xl flex flex-col" style={{maxHeight: '95vh'}}>
+                <div className="bg-white border-b border-gray-200 p-4 rounded-t-none sm:rounded-t-2xl shadow-sm flex items-center justify-between flex-shrink-0">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center"><svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
-                        <div><h1 className="text-xl font-bold text-gray-800">Virtual Health Assistant</h1><p className="text-sm text-green-500 font-semibold flex items-center"><span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>Online</p></div>
+                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                           <Calendar className="w-8 h-8 text-blue-600" />
+                        </div>
+                        <div>
+                            <h1 className="text-xl font-bold text-gray-800">Virtual Health Assistant</h1>
+                            <p className="text-sm text-green-500 font-semibold flex items-center"><span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>Online</p>
+                        </div>
                     </div>
-                    {step === 'generate_report' && (
+                    {step === 'generate_report' && !isGeneratingReport && aiReport && (
                         <div className="flex items-center gap-2">
                             <button onClick={handleSpeak} className="p-2 text-gray-600 hover:bg-gray-200 rounded-full transition">
                                 {isSpeaking ? <XCircle size={20} className="text-red-500"/> : <Volume2 size={20}/>}
@@ -356,25 +371,25 @@ export default function App() {
                         </div>
                     )}
                 </div>
-                <div className="flex-grow p-6 overflow-y-auto bg-white">
+                <div className="flex-grow p-4 sm:p-6 overflow-y-auto bg-white custom-scrollbar">
                     <div className="space-y-6">
                         {chatHistory.map((msg, index) => (
                             <div key={index} className={`flex items-end gap-3 ${msg.sender === 'patient' ? 'justify-end' : 'justify-start'}`}>
-                                {msg.sender === 'doctor' && <div className="w-8 h-8 bg-blue-100 rounded-full flex-shrink-0 flex items-center justify-center"><svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg></div>}
-                                <div className={`max-w-md lg:max-w-lg px-5 py-3 rounded-2xl ${msg.sender === 'patient' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-200 text-gray-800 rounded-bl-none'}`}><p className="leading-relaxed">{msg.text}</p></div>
+                                {msg.sender === 'doctor' && <div className="w-8 h-8 bg-blue-100 rounded-full flex-shrink-0 flex items-center justify-center"><Zap className="w-5 h-5 text-blue-600" /></div>}
+                                <div className={`max-w-md lg:max-w-lg px-5 py-3 rounded-2xl shadow-sm ${msg.sender === 'patient' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-200 text-gray-800 rounded-bl-none'}`}><p className="leading-relaxed">{msg.text}</p></div>
                             </div>
                         ))}
                         {isTyping && (
                             <div className="flex items-end gap-3 justify-start">
-                               <div className="w-8 h-8 bg-blue-100 rounded-full flex-shrink-0 flex items-center justify-center"><svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg></div>
-                                <div className="px-5 py-3 rounded-2xl bg-gray-200 text-gray-500 rounded-bl-none"><div className="flex items-center gap-1"><span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0s'}}></span><span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></span><span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></span></div></div>
+                               <div className="w-8 h-8 bg-blue-100 rounded-full flex-shrink-0 flex items-center justify-center"><Zap className="w-5 h-5 text-blue-600" /></div>
+                                <div className="px-5 py-3 rounded-2xl bg-gray-200 text-gray-500 rounded-bl-none shadow-sm"><div className="flex items-center gap-1"><span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0s'}}></span><span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></span><span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></span></div></div>
                             </div>
                         )}
                         {step === 'generate_report' && !isTyping && <ReportComponent />}
                         <div ref={chatEndRef} />
                     </div>
                 </div>
-                <div className="border-t border-gray-200 bg-white rounded-b-2xl">{renderInputArea()}</div>
+                <div className="border-t border-gray-200 bg-white rounded-b-none sm:rounded-b-2xl flex-shrink-0">{renderInputArea()}</div>
             </div>
         </div>
     );
