@@ -34,30 +34,24 @@ export const fetchAiPlan = async (patientData, classifications) => {
     `;
 
     try {
-        let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+        const apiKey = "sk-09f6406f3b1840458e6e2ff3d025c81a"; // Your DeepSeek API Key
+        const apiUrl = "https://api.deepseek.com/chat/completions";
+
         const payload = {
-            contents: chatHistory,
-            generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: "OBJECT",
-                    properties: {
-                      assessmentSummary: { type: "STRING" },
-                      healthyEating: { type: "STRING" },
-                      physicalActivity: { type: "STRING" },
-                      behaviorAndMindset: { type: "STRING" },
-                      treatmentConsiderations: { type: "STRING" }
-                    },
-                    required: ["assessmentSummary", "healthyEating", "physicalActivity", "behaviorAndMindset", "treatmentConsiderations"]
-                }
-            }
+            model: "deepseek-chat",
+            messages: [
+                { "role": "system", "content": "You are a helpful medical AI assistant. Your response must be a valid JSON object matching the requested structure." },
+                { "role": "user", "content": prompt }
+            ],
+            response_format: { "type": "json_object" }
         };
-        const apiKey = "AIzaSyDGSTzn0GJq3jCif6wfRBg5O4bwsBaGjwY"; // The environment should provide the key
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
         const response = await fetch(apiUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
             body: JSON.stringify(payload)
         });
 
@@ -67,8 +61,8 @@ export const fetchAiPlan = async (patientData, classifications) => {
 
         const result = await response.json();
 
-        if (result.candidates && result.candidates.length > 0) {
-            const jsonText = result.candidates[0].content.parts[0].text;
+        if (result.choices && result.choices.length > 0) {
+            const jsonText = result.choices[0].message.content;
             return JSON.parse(jsonText);
         } else {
             throw new Error("Invalid response structure from AI.");
